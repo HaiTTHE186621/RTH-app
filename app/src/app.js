@@ -20,7 +20,12 @@ export function createApp() {
     console.error('[App] Failed to initialize data store:', err);
   });
 
-  app.use(express.static(path.join(here, "..", "public")));
+  // Serve static files from dist (built React app) or fallback to public
+  const distPath = path.join(here, "..", "dist");
+  const publicPath = path.join(here, "..", "public");
+
+  app.use(express.static(distPath));
+  app.use(express.static(publicPath));
 
   app.get("/health", (req, res) => {
     res.json({ ok: true });
@@ -95,6 +100,18 @@ export function createApp() {
       console.error('[App] /api/sla-report error:', error);
       res.status(500).json({ error: "Internal server error" });
     }
+  });
+
+  // Serve React app for all other routes (SPA fallback)
+  // Use a catch-all middleware instead of route pattern
+  app.use((req, res) => {
+    const indexPath = path.join(here, "..", "dist", "index.html");
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        // Fallback to public/index.html if dist doesn't exist (dev mode)
+        res.sendFile(path.join(here, "..", "public", "index.html"));
+      }
+    });
   });
 
   return app;
