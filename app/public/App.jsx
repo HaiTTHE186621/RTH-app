@@ -328,8 +328,6 @@ const App = () => {
 
           {renderRespondersTable(reportData.responders)}
 
-          <h3>All Requests</h3>
-          {renderRequestsTable(reportData.requests)}
         </div>
       )}
     </div>
