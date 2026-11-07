@@ -1,7 +1,5 @@
 // Request filtering, sorting, and cursor-based pagination for /api/requests
 
-import crypto from 'node:crypto';
-
 /**
  * Filter and paginate requests
  * @param {DataStore} dataStore
@@ -207,4 +205,98 @@ export function validateDateRange(from, to) {
   }
 
   return from <= to;
+}
+
+/**
+ * Get all filtered and sorted requests (no pagination)
+ * @param {DataStore} dataStore
+ * @param {Object} params - Query parameters
+ * @returns {Array} SLAResult[]
+ */
+export function filterAndSortRequests(dataStore, params) {
+  const {
+    from,
+    to,
+    site_id,
+    responder_id,
+    late,
+    within_target,
+    sort = 'id',
+  } = params;
+
+  // Get base report data
+  const report = dataStore.getSLAReport(from, to);
+  let results = report.requests;
+
+  // Apply filters
+  if (site_id) {
+    const siteIdNum = parseInt(site_id, 10);
+    results = results.filter(r => r.site_id === siteIdNum);
+  }
+
+  if (responder_id) {
+    const responderIdNum = parseInt(responder_id, 10);
+    results = results.filter(r => r.responder_id === responderIdNum);
+  }
+
+  if (late !== undefined) {
+    const lateValue = late === 'true';
+    results = results.filter(r => r.completed_late === lateValue);
+  }
+
+  if (within_target !== undefined) {
+    const withinTargetValue = within_target === 'true';
+    results = results.filter(r => r.within_target === withinTargetValue);
+  }
+
+  // Sort results
+  results = sortResults(results, sort);
+
+  return results;
+}
+
+/**
+ * Convert results to CSV format
+ * @param {Array} results - SLAResult[]
+ * @returns {string} CSV content
+ */
+export function convertToCSV(results) {
+  // CSV header
+  const header = 'id,site_id,responder_id,responder,response_business_minutes,within_target,completed_late';
+
+  // Convert each row
+  const rows = results.map(row => {
+    const fields = [
+      row.id,
+      row.site_id,
+      row.responder_id,
+      escapeCSVField(row.responder),
+      row.response_business_minutes === null ? '' : row.response_business_minutes,
+      row.within_target === null ? '' : row.within_target,
+      row.completed_late === null ? '' : row.completed_late,
+    ];
+    return fields.join(',');
+  });
+
+  return [header, ...rows].join('\n');
+}
+
+/**
+ * Escape CSV field (quote if contains comma or quote)
+ * @param {string|null} field
+ * @returns {string}
+ */
+function escapeCSVField(field) {
+  if (field === null || field === undefined) {
+    return '';
+  }
+
+  const str = String(field);
+
+  // If field contains comma or quote, wrap in quotes and escape internal quotes
+  if (str.includes(',') || str.includes('"')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
 }

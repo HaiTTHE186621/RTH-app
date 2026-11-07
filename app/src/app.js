@@ -3,8 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { HelpdeskClient } from "./helpdesk.js";
 import { DataStore } from "./data-store.js";
-import { validateDateRange } from "./request-filter.js";
-import { filterAndPaginateRequests } from "./request-filter.js";
+import { validateDateRange, filterAndPaginateRequests, filterAndSortRequests, convertToCSV } from "./request-filter.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -72,6 +71,45 @@ export function createApp() {
       res.json(result);
     } catch (error) {
       console.error('[App] /api/requests error:', error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/requests.csv", (req, res) => {
+    // CSV export: same filters as /api/requests, no pagination
+    if (!dataStore.isReady) {
+      return res.status(503).json({ error: "Service not ready" });
+    }
+
+    const { from, to, site_id, responder_id, late, within_target, sort } = req.query;
+
+    // Validate required parameters
+    if (!from || !to) {
+      return res.status(400).json({ error: "Missing required parameters: from, to" });
+    }
+
+    if (!validateDateRange(from, to)) {
+      return res.status(400).json({ error: "Invalid date range" });
+    }
+
+    try {
+      const results = filterAndSortRequests(dataStore, {
+        from,
+        to,
+        site_id,
+        responder_id,
+        late,
+        within_target,
+        sort,
+      });
+
+      const csv = convertToCSV(results);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="sla-requests-${from}-to-${to}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error('[App] /api/requests.csv error:', error);
       res.status(400).json({ error: error.message });
     }
   });

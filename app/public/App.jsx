@@ -146,6 +146,23 @@ const App = () => {
     fetchBrowseData(null, true);
   };
 
+  const handleDownloadCSV = () => {
+    const params = new URLSearchParams({
+      from: fromDate,
+      to: toDate,
+      ...Object.entries(filters).reduce((acc, [key, value]) => {
+        // Skip limit and cursor for CSV export
+        if (key !== 'limit' && value !== '') {
+          acc[key] = value;
+        }
+        return acc;
+      }, {}),
+    });
+
+    // Trigger download by opening URL
+    window.location.href = `/api/requests.csv?${params}`;
+  };
+
   const renderStatus = () => {
     if (!ready) {
       return (
@@ -438,9 +455,11 @@ const App = () => {
           </div>
         </div>
 
-        <button type="submit" disabled={loading || !ready} className="btn btn-primary">
-          {loading ? 'Loading...' : 'Browse Requests'}
-        </button>
+        <div className="form-actions">
+          <button type="submit" disabled={loading || !ready} className="btn btn-primary">
+            {loading ? 'Loading...' : 'Browse Requests'}
+          </button>
+        </div>
       </form>
 
       {error && <div className="error-message">{error}</div>}
@@ -449,6 +468,13 @@ const App = () => {
         <div className="browse-results">
           <div className="results-info">
             <p>Page {currentPage} • Showing {browseData.data.length} results this page • {allBrowseData.length} total loaded</p>
+            <button
+              onClick={handleDownloadCSV}
+              disabled={loading || !ready}
+              className="btn btn-secondary download-btn"
+            >
+              📥 Download CSV
+            </button>
           </div>
 
           {renderRequestsTable(browseData.data)}
